@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Dashboard</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        .weather-card {
+            box-shadow: 0px 4px 8px rgba(0, 0, 0, 0.1);
+            border-radius: 8px;
+            margin-bottom: 20px;
+            padding: 15px;
+        }
+        .summary-table {
+            margin-top: 30px;
+        }
+        .card-title {
+            font-weight: bold;
+            font-size: 1.3em;
+        }
+        .weather-details {
+            font-size: 0.9em;
+        }
+        .temp-unit {
+            float: right;
+        }
+        #temperatureTrendChart {
+            max-height: 400px; /* Set a maximum height for the chart */
+        }
+    </style>
+</head>
+<body>
+    <div class="container my-5">
+        <h2 class="text-center mb-4">Weather Dashboard</h2>
+
+        <!-- Weather Cards -->
+        <div class="row" id="weather-cards">
+            {% for city, data in weather_data.items() %}
+            <div class="col-md-4">
+                <div class="card weather-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Weather in {{ city }}</h5>
+                        <div class="temp-unit">
+                            <label><input type="radio" name="temp_unit_{{ city }}" value="C" checked> C</label>
+                            <label><input type="radio" name="temp_unit_{{ city }}" value="F"> F</label>
+                            <label><input type="radio" name="temp_unit_{{ city }}" value="K"> K</label>
+                        </div>
+                        <p class="weather-details">
+                            <strong>Temperature:</strong> <span class="temp" data-celsius="{{ data.temperature.split('°')[0] | float }}">{{ data.temperature }}</span><br>
+                            <strong>Feels Like:</strong> <span class="feels-like" data-celsius="{{ data.feels_like.split('°')[0] | float }}">{{ data.feels_like }}</span><br>
+                            <strong>Main Condition:</strong> {{ data.condition }}<br>
+                            <strong>Humidity:</strong> {{ data.humidity }}%<br>
+                            <strong>Wind Speed:</strong> {{ data.wind_speed }} km/h<br>
+                            <small class="text-muted">Last updated: {{ data.timestamp }}</small>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+
+        <!-- Daily Summary Table and Temperature Trend -->
+        <div class="row">
+            <!-- Daily Summary Table -->
+            <div class="col-md-6 summary-table">
+                <h4 class="text-center mt-5">Daily Summary (Last 3 hours)</h4>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered mt-3">
+                        <thead class="thead-dark">
+                            <tr>
+                                <th>City</th>
+                                <th>Average Temperature (°C)</th>
+                                <th>Maximum Temperature (°C)</th>
+                                <th>Minimum Temperature (°C)</th>
+                                <th>Dominant Condition</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for city, summaries in daily_summary.items() %}
+                                {% for summary in summaries %}
+                                <tr>
+                                    <td>{{ city }}</td>
+                                    <td>{{ summary.average_temperature }}</td>
+                                    <td>{{ summary.maximum_temperature }}</td>
+                                    <td>{{ summary.minimum_temperature }}</td>
+                                    <td>{{ summary.dominant_condition }}</td>
+                                </tr>
+                                {% endfor %}
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Temperature Trend Chart -->
+            <div class="col-md-6">
+                <div class="card weather-card">
+                    <div class="card-body">
+                        <h5 class="card-title text-center">Temperature Trend</h5>
+                        <canvas id="temperatureTrendChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.1/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        $(document).ready(function() {
+            $('input[type="radio"]').change(function() {
+                const unit = $(this).val();
+                const card = $(this).closest('.weather-card');
+                const tempElement = card.find('.temp');
+                const feelsLikeElement = card.find('.feels-like');
+
+                let celsiusTemp = parseFloat(tempElement.data('celsius'));
+                let celsiusFeelsLike = parseFloat(feelsLikeElement.data('celsius'));
+
+                if (unit === 'F') {
+                    tempElement.text((celsiusTemp * 9/5 + 32).toFixed(2) + '°F');
+                    feelsLikeElement.text((celsiusFeelsLike * 9/5 + 32).toFixed(2) + '°F');
+                } else if (unit === 'K') {
+                    tempElement.text((celsiusTemp + 273.15).toFixed(2) + ' K');
+                    feelsLikeElement.text((celsiusFeelsLike + 273.15).toFixed(2) + ' K');
+                } else {
+                    tempElement.text(celsiusTemp.toFixed(2) + '°C');
+                    feelsLikeElement.text(celsiusFeelsLike.toFixed(2) + '°C');
+                }
+            });
+        });
+
+        // Create the chart
+        // Create the chart
+const temperatureTrendChart = document.getElementById('temperatureTrendChart').getContext('2d');
+
+const labels = {{ labels | tojson | safe }};  // Use labels passed from Flask
+const maxTemps = {{ max_temps | tojson | safe }}; // Use max_temps passed from Flask
+const minTemps = {{ min_temps | tojson | safe }}; // Use min_temps passed from Flask
+
+const chart = new Chart(temperatureTrendChart, {
+    type: 'bar',
+    data: {
+        labels: labels,
+        datasets: [
+            {
+                label: 'Maximum Temperature (°C)',
+                data: maxTemps,
+                backgroundColor: 'rgba(255, 99, 132, 0.6)',
+                borderColor: 'red',
+                borderWidth: 1,
+            },
+            {
+                label: 'Minimum Temperature (°C)',
+                data: minTemps,
+                backgroundColor: 'rgba(54, 162, 235, 0.6)',
+                borderColor: 'blue',
+                borderWidth: 1,
+            }
+        ]
+    },
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                beginAtZero: true,
+                title: {
+                    display: true,
+                    text: 'Temperature (°C)'
+                }
+            }
+        }
+    }
+});
+
+    </script>
+</body>
+</html>
